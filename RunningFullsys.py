@@ -8,7 +8,7 @@ st.set_page_config(layout="wide")
 # Load Data
 @st.cache_data
 def load_data():
-    file_path = r"D:\Projects\realeastae\cleaned_corrected_real_estate.parquet"
+    file_path = "cleaned_corrected_real_estate.parquet"
     #file_path = r"D:\Projects\realeastae\omanreal_outputs\filtered_real_estate_data.parquet"
     df = pd.read_parquet(file_path)
     df["PostDate"] = pd.to_datetime(df["PostDate"])
