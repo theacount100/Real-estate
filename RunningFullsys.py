@@ -9,8 +9,6 @@ st.set_page_config(layout="wide")
 @st.cache_data
 def load_data():
     file_path = "cleaned_corrected_real_estate.parquet"
-    files = os.listdir(".")
-    st.write("Files in current directory:", files)  # Debugging help
     #file_path = r"D:\Projects\realeastae\omanreal_outputs\filtered_real_estate_data.parquet"
     df = pd.read_parquet(file_path)
     df["PostDate"] = pd.to_datetime(df["PostDate"])
