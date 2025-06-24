@@ -6,7 +6,7 @@ import plotly.express as px
 st.set_page_config(layout="wide")
 
 # Load Data
-@st.cache_data(ttl=0)
+#@st.cache_data(ttl=0)
 def load_data():
     file_path = "cleaned_corrected_real_estate.parquet"
     #file_path = r"D:\Projects\realeastae\omanreal_outputs\filtered_real_estate_data.parquet"
