@@ -29,13 +29,7 @@ st.title("📊 Oman Real Estate Market Dashboard")
 st.sidebar.header("Filter Listings")
 
 governorate_options = ["All"] + sorted(df["Governorate"].dropna().unique().tolist())
-#selected_governorate = st.sidebar.selectbox("Governorate", options=governorate_options)
-selected_governorate = st.sidebar.selectbox(
-    "Governorate",
-    options=governorate_options,
-    index=0  # default
-)
-
+selected_governorate = st.sidebar.selectbox("Governorate", options=governorate_options)
 
 if selected_governorate != "All":
     wilayat_options = df[df["Governorate"] == selected_governorate]["Wilayat"].dropna().unique()
