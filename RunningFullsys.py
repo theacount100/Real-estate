@@ -8,7 +8,7 @@ import plotly.express as px
 st.set_page_config(layout="wide")
 
 # Load Data
-@st.cache_data
+# @st.cache_data
 def load_data():
     # BASE_DIR = Path(__file__).resolve().parent.parent # for computer use only not githup
     # CLEANED_DIR = BASE_DIR / "data" / "cleaned" # for computer use only not githup
