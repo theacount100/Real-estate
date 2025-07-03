@@ -1,15 +1,21 @@
+
 # Real Estate Data Dashboard using Streamlit
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+# from pathlib import Path # for computer use only not githup
 
 st.set_page_config(layout="wide")
 
 # Load Data
-#@st.cache_data(ttl=0)
+@st.cache_data
 def load_data():
-    file_path = "cleaned_corrected_real_estate.parquet"
-    #file_path = r"D:\Projects\realeastae\omanreal_outputs\filtered_real_estate_data.parquet"
+    # BASE_DIR = Path(__file__).resolve().parent.parent # for computer use only not githup
+    # CLEANED_DIR = BASE_DIR / "data" / "cleaned" # for computer use only not githup
+    # file_path = CLEANED_DIR / "cleaned_corrected_real_estate.parquet" # for computer use only not githup
+
+    file_path = "cleaned_corrected_real_estate.parquet" # for githupuse
+
     df = pd.read_parquet(file_path)
     df["PostDate"] = pd.to_datetime(df["PostDate"])
     df["Month"] = df["PostDate"].dt.month
@@ -31,35 +37,39 @@ st.sidebar.header("Filter Listings")
 governorate_options = ["All"] + sorted(df["Governorate"].dropna().unique().tolist())
 selected_governorate = st.sidebar.selectbox("Governorate", options=governorate_options)
 
+# Dynamic Wilayat options based on Governorate
+df_temp = df.copy()
 if selected_governorate != "All":
-    wilayat_options = df[df["Governorate"] == selected_governorate]["Wilayat"].dropna().unique()
-else:
-    wilayat_options = df["Wilayat"].dropna().unique()
-wilayat_options = ["All"] + sorted(wilayat_options.tolist())
+    df_temp = df_temp[df_temp["Governorate"] == selected_governorate]
+wilayat_options = ["All"] + sorted(df_temp["Wilayat"].dropna().unique().tolist())
 selected_wilayat = st.sidebar.selectbox("Wilayat", options=wilayat_options)
 
+# Dynamic Area options based on Wilayat
 if selected_wilayat != "All":
-    area_options = df[df["Wilayat"] == selected_wilayat]["Area"].dropna().unique()
-else:
-    area_options = df["Area"].dropna().unique()
-area_options = ["All"] + sorted(area_options.tolist())
+    df_temp = df_temp[df_temp["Wilayat"] == selected_wilayat]
+area_options = ["All"] + sorted(df_temp["Area"].dropna().unique().tolist())
 selected_area = st.sidebar.selectbox("Area", options=area_options)
 
 cat1_options = ["All"] + sorted(df["Category Level 1"].dropna().unique().tolist())
 selected_cat1 = st.sidebar.selectbox("Sale / Rent", options=cat1_options)
 
+df_temp = df.copy()
+if selected_governorate != "All":
+    df_temp = df_temp[df_temp["Governorate"] == selected_governorate]
+if selected_wilayat != "All":
+    df_temp = df_temp[df_temp["Wilayat"] == selected_wilayat]
+if selected_area != "All":
+    df_temp = df_temp[df_temp["Area"] == selected_area]
 if selected_cat1 != "All":
-    cat2_options = df[df["Category Level 1"] == selected_cat1]["Category Level 2"].dropna().unique()
-else:
-    cat2_options = df["Category Level 2"].dropna().unique()
-cat2_options = ["All"] + sorted(cat2_options.tolist())
+    df_temp = df_temp[df_temp["Category Level 1"] == selected_cat1]
+
+cat2_options = ["All"] + sorted(df_temp["Category Level 2"].dropna().unique().tolist())
 selected_cat2 = st.sidebar.selectbox("Land Type", options=cat2_options)
 
 if selected_cat2 != "All":
-    cat3_options = df[df["Category Level 2"] == selected_cat2]["Category Level 3"].dropna().unique()
-else:
-    cat3_options = df["Category Level 3"].dropna().unique()
-cat3_options = ["All"] + sorted(cat3_options.tolist())
+    df_temp = df_temp[df_temp["Category Level 2"] == selected_cat2]
+
+cat3_options = ["All"] + sorted(df_temp["Category Level 3"].dropna().unique().tolist())
 selected_cat3 = st.sidebar.selectbox("Subcategory", options=cat3_options)
 
 selected_month = st.sidebar.slider("Month", min_value=1, max_value=12, value=(1, 12))
@@ -181,8 +191,6 @@ start_idx = st.session_state.page * items_per_page
 end_idx = start_idx + items_per_page
 current_page_data = df_sorted.iloc[start_idx:end_idx]
 
-# Get current page data
-current_page_data = df_sorted.iloc[start_idx:end_idx]
 
 # Add repost flag column to df_sorted if missing
 if "DuplicateGroup" in df.columns:
@@ -225,7 +233,16 @@ for idx, row in df_sorted.iloc[start_idx:end_idx].iterrows():
                 reposts_display.to_html(escape=False, index=False),
                 unsafe_allow_html=True
             )
+# Bottom Pagination Controls
+col1, col2, _ = st.columns([1, 1, 3])
+with col1:
+    if st.button("Previous", key="prev_bottom") and st.session_state.page > 0:
+         st.session_state.page -= 1
+with col2:
+    if st.button("Next", key="next_bottom") and st.session_state.page < total_pages - 1:
+        st.session_state.page += 1
 
+    st.write(f"Page {st.session_state.page + 1} of {total_pages}")
 
 
 # Price Trends
@@ -285,5 +302,3 @@ seller_counts.columns = ["Publisher", "Active Listings"]
 fig = px.bar(seller_counts.head(10), x="Publisher", y="Active Listings", title="Top 10 Sellers")
 st.plotly_chart(fig, use_container_width=True)
 
-
-st.caption("Created by Abdullah | Powered by Streamlit")
