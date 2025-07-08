@@ -7,6 +7,30 @@ from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide")
 
+st.set_page_config(layout="wide")
+
+# 💡 Mobile Optimization CSS
+st.markdown("""
+    <style>
+        /* Reduce padding for small screens */
+        @media (max-width: 768px) {
+            .block-container {
+                padding: 0.5rem !important;
+            }
+            /* Make wide tables scrollable */
+            .css-1r6slb0 {
+                overflow-x: auto !important;
+            }
+            /* Adjust sidebar filter font sizes and spacing */
+            .css-1v0mbdj, .css-1y4p8pa {
+                font-size: 14px !important;
+                margin-bottom: 0.5rem !important;
+            }
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
 # Load Data
 @st.cache_data
 def load_data():
