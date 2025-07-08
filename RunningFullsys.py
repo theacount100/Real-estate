@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
-# from pathlib import Path # for computer use only not githup
+#from pathlib import Path # for computer use only not githup
 
 st.set_page_config(layout="wide")
 
@@ -110,15 +110,21 @@ df_filtered = df_filtered[df_filtered["Category Level 2"].isin(valid_cat2_filter
 min_area = int(df_filtered["Area_m2"].min()) if not df_filtered.empty else 0
 max_area = int(df_filtered["Area_m2"].max()) if not df_filtered.empty else 1
 
-selected_area_range = st.sidebar.slider(
-    "Filter by Area Size (m²)",
-    min_value=min_area,
-    max_value=max_area,
-    value=(min_area, max_area),
-    step=10  # Optional: make steps smoother
-)
+# Only if df_filtered is not empty
+if not df_filtered.empty:
+    area_min = int(df_filtered["Area_m2"].min())
+    area_max = int(df_filtered["Area_m2"].max())
 
-df_filtered = df_filtered[df_filtered["Area_m2"].between(*selected_area_range)]
+    st.sidebar.markdown("**Filter by Area Size (m²)**")
+    user_min_area = st.sidebar.number_input("Min Area", min_value=area_min, max_value=area_max, value=area_min, step=10)
+    user_max_area = st.sidebar.number_input("Max Area", min_value=area_min, max_value=area_max, value=area_max, step=10)
+
+    # Apply filtering only if inputs are valid
+    if user_min_area <= user_max_area:
+        df_filtered = df_filtered[df_filtered["Area_m2"].between(user_min_area, user_max_area)]
+    else:
+        st.sidebar.warning("⚠️ Min area must be less than or equal to max area.")
+
 
 if months_back is not None:
     cutoff_date = pd.to_datetime("today") - pd.DateOffset(months=months_back)
