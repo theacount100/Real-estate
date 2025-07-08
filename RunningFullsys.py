@@ -1,18 +1,18 @@
-
 # Real Estate Data Dashboard using Streamlit
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-# from pathlib import Path # for computer use only not githup
+from datetime import datetime, timedelta
+from pathlib import Path # for computer use only not githup
 
 st.set_page_config(layout="wide")
 
 # Load Data
-# @st.cache_data
+@st.cache_data
 def load_data():
-    # BASE_DIR = Path(__file__).resolve().parent.parent # for computer use only not githup
-    # CLEANED_DIR = BASE_DIR / "data" / "cleaned" # for computer use only not githup
-    # file_path = CLEANED_DIR / "cleaned_corrected_real_estate.parquet" # for computer use only not githup
+    #BASE_DIR = Path(__file__).resolve().parent.parent # for computer use only not githup
+    #CLEANED_DIR = BASE_DIR / "data" / "cleaned" # for computer use only not githup
+    #file_path = CLEANED_DIR / "cleaned_corrected_real_estate.parquet" # for computer use only not githup
 
     file_path = "cleaned_corrected_real_estate.parquet" # for githupuse
 
@@ -27,18 +27,30 @@ def load_data():
 
 df = load_data()
 
+
 st.title("📊 Oman Real Estate Market Dashboard")
-
-
 
 # Sidebar Filters
 st.sidebar.header("Filter Listings")
 
+# Dynamic Wilayat options based on Governorate
+df_temp = df.copy()
+
+# Time Filter Options
+time_filter_options = {
+    "All": None,
+    "Past 1 Month": 1,
+    "Past 2 Months": 2,
+    "Past 3 Months": 3,
+    "Past 6 Months": 6,
+}
+
+selected_time_range = st.sidebar.selectbox("Time Range", list(time_filter_options.keys()))
+months_back = time_filter_options[selected_time_range]
+
 governorate_options = ["All"] + sorted(df["Governorate"].dropna().unique().tolist())
 selected_governorate = st.sidebar.selectbox("Governorate", options=governorate_options)
 
-# Dynamic Wilayat options based on Governorate
-df_temp = df.copy()
 if selected_governorate != "All":
     df_temp = df_temp[df_temp["Governorate"] == selected_governorate]
 wilayat_options = ["All"] + sorted(df_temp["Wilayat"].dropna().unique().tolist())
@@ -63,7 +75,11 @@ if selected_area != "All":
 if selected_cat1 != "All":
     df_temp = df_temp[df_temp["Category Level 1"] == selected_cat1]
 
-cat2_options = ["All"] + sorted(df_temp["Category Level 2"].dropna().unique().tolist())
+# Filter out Category Level 2 values with fewer than 20 listings
+cat2_counts = df_temp["Category Level 2"].value_counts()
+valid_cat2 = cat2_counts[cat2_counts >= 20].index.tolist()
+
+cat2_options = ["All"] + sorted(valid_cat2)
 selected_cat2 = st.sidebar.selectbox("Land Type", options=cat2_options)
 
 if selected_cat2 != "All":
@@ -71,8 +87,6 @@ if selected_cat2 != "All":
 
 cat3_options = ["All"] + sorted(df_temp["Category Level 3"].dropna().unique().tolist())
 selected_cat3 = st.sidebar.selectbox("Subcategory", options=cat3_options)
-
-selected_month = st.sidebar.slider("Month", min_value=1, max_value=12, value=(1, 12))
 
 df_filtered = df[df['RepostLabel'].isin(['new', 'unique'])].copy()
 if selected_governorate != "All":
@@ -87,7 +101,28 @@ if selected_cat2 != "All":
     df_filtered = df_filtered[df_filtered["Category Level 2"] == selected_cat2]
 if selected_cat3 != "All":
     df_filtered = df_filtered[df_filtered["Category Level 3"] == selected_cat3]
-df_filtered = df_filtered[df_filtered["Month"].between(*selected_month)]
+
+# Remove low-frequency Land Types
+valid_cat2_filtered = df_filtered["Category Level 2"].value_counts()
+valid_cat2_filtered = valid_cat2_filtered[valid_cat2_filtered >= 20].index.tolist()
+df_filtered = df_filtered[df_filtered["Category Level 2"].isin(valid_cat2_filtered)]
+
+min_area = int(df_filtered["Area_m2"].min()) if not df_filtered.empty else 0
+max_area = int(df_filtered["Area_m2"].max()) if not df_filtered.empty else 1
+
+selected_area_range = st.sidebar.slider(
+    "Filter by Area Size (m²)",
+    min_value=min_area,
+    max_value=max_area,
+    value=(min_area, max_area),
+    step=10  # Optional: make steps smoother
+)
+
+df_filtered = df_filtered[df_filtered["Area_m2"].between(*selected_area_range)]
+
+if months_back is not None:
+    cutoff_date = pd.to_datetime("today") - pd.DateOffset(months=months_back)
+    df_filtered = df_filtered[df_filtered["PostDate"] >= cutoff_date]
 
 
 # Map
@@ -249,36 +284,33 @@ with col2:
 st.subheader("📈 Price Trend Over Time")
 
 def plot_trend(df, location_name):
-    # Group by month and calculate mean price
-    trend_df = df.groupby("Month")["Price_per_m2"].mean().reset_index()
-    
-    # Only plot if we have data
+    # Extract year and month
+    df["YearMonth"] = df["PostDate"].dt.to_period("M").astype(str)
+
+    # Group by Year-Month string and calculate mean price
+    trend_df = df.groupby("YearMonth")["Price_per_m2"].mean().reset_index()
+    trend_df["YearMonth"] = pd.to_datetime(trend_df["YearMonth"])
+
     if not trend_df.empty:
-        # Find first and last month with data
-        min_month = trend_df["Month"].min()
-        max_month = trend_df["Month"].max()
-        
-        # Create plot with dynamic range
         fig = px.line(
             trend_df,
-            x="Month",
+            x="YearMonth",
             y="Price_per_m2",
-            title=f"Price Trend in {location_name}",
-            range_x=[min_month-0.5, max_month+0.5]  # Add small padding
+            title=f"Price Trend in {location_name}"
         )
-        
-        # Format x-axis to show only whole months
-        fig.update_xaxes(
-            tickmode='linear',
-            dtick=1,
-            range=[min_month-0.5, max_month+0.5]
+
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Price per m²",
+            xaxis=dict(tickformat="%b %Y"),  # Month Year format
         )
-        
-        # Format y-axis to start from sensible value
+
         min_price = trend_df["Price_per_m2"].min()
-        fig.update_yaxes(range=[min_price*0.9, trend_df["Price_per_m2"].max()*1.1])
-        
+        max_price = trend_df["Price_per_m2"].max()
+        fig.update_yaxes(range=[min_price * 0.9, max_price * 1.1])
+
         st.plotly_chart(fig, use_container_width=True)
+
 
 # Plot trends for selected locations
 if selected_governorate != "All":
@@ -292,6 +324,7 @@ if selected_wilayat != "All":
 if selected_area != "All":
     df_ar = df[df["Area"] == selected_area].copy()
     plot_trend(df_ar, selected_area)
+
 
 
 # Seller Saturation
