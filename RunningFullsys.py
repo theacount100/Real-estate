@@ -3,18 +3,18 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
-from pathlib import Path # for computer use only not githup
+#from pathlib import Path # for computer use only not githup
 
 st.set_page_config(layout="wide")
 
 # Load Data
 @st.cache_data
 def load_data():
-    BASE_DIR = Path(__file__).resolve().parent.parent # for computer use only not githup
-    CLEANED_DIR = BASE_DIR / "data" / "cleaned" # for computer use only not githup
-    file_path = CLEANED_DIR / "cleaned_corrected_real_estate.parquet" # for computer use only not githup
+    #BASE_DIR = Path(__file__).resolve().parent.parent # for computer use only not githup
+    #CLEANED_DIR = BASE_DIR / "data" / "cleaned" # for computer use only not githup
+    #file_path = CLEANED_DIR / "cleaned_corrected_real_estate.parquet" # for computer use only not githup
 
-    # file_path = "cleaned_corrected_real_estate.parquet" # for githupuse
+    file_path = "cleaned_corrected_real_estate.parquet" # for githupuse
 
     df = pd.read_parquet(file_path)
     df["PostDate"] = pd.to_datetime(df["PostDate"])
