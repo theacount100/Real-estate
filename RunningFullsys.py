@@ -133,7 +133,7 @@ if months_back is not None:
     cutoff_date = pd.to_datetime("today") - pd.DateOffset(months=months_back)
     df_filtered = df_filtered[df_filtered["PostDate"] >= cutoff_date]
 
-# === Coordinate Filter: Manual Bounding Box ===
+# === Coordinate Filter: Manual Bounding Box (mobile-friendly with Apply) ===
 st.sidebar.markdown("### 📍 Coordinate Filter")
 use_bbox = st.sidebar.checkbox("Enable manual bounding box", value=False)
 
@@ -146,84 +146,79 @@ if use_bbox and not df_filtered.empty:
     if df_geo.empty:
         st.sidebar.info("No coordinates available after current filters.")
     else:
-        mode = st.sidebar.radio(
-            "Bounding box input mode",
-            ["SW/NE corners", "4 points (any order)"],
-            index=0
-        )
+        # Wrap inputs in a form so phones get a big Apply button
+        with st.sidebar.form("bbox_form", clear_on_submit=False):
+            mode = st.radio(
+                "Bounding box input mode",
+                ["SW/NE corners", "4 points (any order)"],
+                index=0,
+                key="bbox_mode"
+            )
 
-        lat_min = lon_min = lat_max = lon_max = None  # will be set below
-
-        if mode == "SW/NE corners":
-            # sensible defaults from current data
+            # Defaults from current filtered data
             d_lat_min, d_lat_max = float(df_geo["Latitude"].min()), float(df_geo["Latitude"].max())
             d_lon_min, d_lon_max = float(df_geo["Longitude"].min()), float(df_geo["Longitude"].max())
 
-            st.sidebar.markdown("**South-West corner** (min lat, min lon)")
-            sw_lat = st.sidebar.number_input("SW latitude", value=round(d_lat_min, 6), format="%.6f", key="bbox_sw_lat")
-            sw_lon = st.sidebar.number_input("SW longitude", value=round(d_lon_min, 6), format="%.6f", key="bbox_sw_lon")
+            lat_min = lon_min = lat_max = lon_max = None
 
-            st.sidebar.markdown("**North-East corner** (max lat, max lon)")
-            ne_lat = st.sidebar.number_input("NE latitude", value=round(d_lat_max, 6), format="%.6f", key="bbox_ne_lat")
-            ne_lon = st.sidebar.number_input("NE longitude", value=round(d_lon_max, 6), format="%.6f", key="bbox_ne_lon")
+            if mode == "SW/NE corners":
+                st.markdown("**South-West corner** (min lat, min lon)")
+                sw_lat = st.number_input("SW latitude", value=round(d_lat_min, 6), format="%.6f", key="bbox_sw_lat")
+                sw_lon = st.number_input("SW longitude", value=round(d_lon_min, 6), format="%.6f", key="bbox_sw_lon")
 
-            # Normalize in case user swapped them
-            lat_min, lat_max = sorted([float(sw_lat), float(ne_lat)])
-            lon_min, lon_max = sorted([float(sw_lon), float(ne_lon)])
+                st.markdown("**North-East corner** (max lat, max lon)")
+                ne_lat = st.number_input("NE latitude", value=round(d_lat_max, 6), format="%.6f", key="bbox_ne_lat")
+                ne_lon = st.number_input("NE longitude", value=round(d_lon_max, 6), format="%.6f", key="bbox_ne_lon")
 
-        else:  # "4 points (any order)"
-            st.sidebar.markdown(
-                "Paste **four lines**, each `lat, lon` (decimal degrees). Example:\n"
-                "```\n23.598298879649207, 58.23247528626394\n23.60, 58.25\n23.62, 58.21\n23.59, 58.27\n```"
-            )
-            pts_text = st.sidebar.text_area("Points", value="", height=140, key="bbox_points_text")
+                lat_min, lat_max = sorted([float(sw_lat), float(ne_lat)])
+                lon_min, lon_max = sorted([float(sw_lon), float(ne_lon)])
 
-            def _parse_points(txt: str):
-                pts = []
-                for line in txt.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    # allow comma or whitespace separation
-                    if "," in line:
-                        a, b = line.split(",", 1)
-                    else:
-                        parts = line.split()
-                        if len(parts) != 2:
+            else:  # "4 points (any order)"
+                st.markdown(
+                    "Paste **four lines**, each `lat, lon` (decimal degrees). Example:\n"
+                    "```\n23.598298879649207, 58.23247528626394\n23.60, 58.25\n23.62, 58.21\n23.59, 58.27\n```"
+                )
+                pts_text = st.text_area("Points", value=st.session_state.get("bbox_points_text", ""), height=140, key="bbox_points_text")
+
+                def _parse_points(txt: str):
+                    pts = []
+                    for line in txt.splitlines():
+                        line = line.strip()
+                        if not line:
                             continue
-                        a, b = parts
-                    try:
-                        lat = float(a.strip())
-                        lon = float(b.strip())
-                        # sanity range: lat[-90,90], lon[-180,180]
-                        if -90 <= lat <= 90 and -180 <= lon <= 180:
-                            pts.append((lat, lon))
-                    except:
-                        pass
-                return pts
+                        if "," in line:
+                            a, b = line.split(",", 1)
+                        else:
+                            parts = line.split()
+                            if len(parts) != 2:
+                                continue
+                            a, b = parts
+                        try:
+                            lat = float(a.strip()); lon = float(b.strip())
+                            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                                pts.append((lat, lon))
+                        except:
+                            pass
+                    return pts
 
-            pts = _parse_points(pts_text)
-            if len(pts) < 3:
-                st.sidebar.warning("Provide at least 3 valid points (4 recommended).")
-            else:
-                lats = [p[0] for p in pts]
-                lons = [p[1] for p in pts]
-                lat_min, lat_max = float(min(lats)), float(max(lats))
-                lon_min, lon_max = float(min(lons)), float(max(lons))
+                pts = _parse_points(pts_text)
+                if len(pts) >= 3:
+                    lats = [p[0] for p in pts]; lons = [p[1] for p in pts]
+                    lat_min, lat_max = float(min(lats)), float(max(lats))
+                    lon_min, lon_max = float(min(lons)), float(max(lons))
+                else:
+                    st.warning("Provide at least 3 valid points (4 recommended).")
 
-        # If we have a valid box, apply it
-        if all(v is not None for v in (lat_min, lat_max, lon_min, lon_max)):
-            # Tiny padding to avoid empty result when box equals a single point
+            # Big, mobile-friendly button
+            submitted = st.form_submit_button("Apply")
+
+        # Only apply after pressing Apply
+        if submitted and all(v is not None for v in (lat_min, lat_max, lon_min, lon_max)):
+            # Tiny padding for zero-area boxes
             if lat_min == lat_max:
-                lat_min -= 1e-6
-                lat_max += 1e-6
+                lat_min -= 1e-6; lat_max += 1e-6
             if lon_min == lon_max:
-                lon_min -= 1e-6
-                lon_max += 1e-6
-
-            st.sidebar.caption(
-                f"Using lat [{lat_min:.6f}, {lat_max:.6f}], lon [{lon_min:.6f}, {lon_max:.6f}]"
-            )
+                lon_min -= 1e-6; lon_max += 1e-6
 
             before_n = len(df_filtered)
             mask = (
@@ -232,15 +227,16 @@ if use_bbox and not df_filtered.empty:
             )
             df_filtered = df_filtered[mask]
             after_n = len(df_filtered)
+
+            st.sidebar.caption(f"Using lat [{lat_min:.6f}, {lat_max:.6f}], lon [{lon_min:.6f}, {lon_max:.6f}]")
             st.sidebar.caption(f"Bounding box matched {after_n:,} / {before_n:,} listings")
 
-            # Reset pagination when bbox changes
+            # Reset pagination on change
             bbox_state = ("bbox_manual", round(lat_min, 6), round(lat_max, 6),
                                         round(lon_min, 6), round(lon_max, 6))
             if st.session_state.get("last_bbox_state") != bbox_state:
                 st.session_state.page = 0
             st.session_state["last_bbox_state"] = bbox_state
-
 
 # Map
 # === Map Section ===
@@ -451,4 +447,5 @@ seller_counts = df_filtered["Publisher"].value_counts().reset_index()
 seller_counts.columns = ["Publisher", "Active Listings"]
 fig = px.bar(seller_counts.head(10), x="Publisher", y="Active Listings", title="Top 10 Sellers")
 st.plotly_chart(fig, use_container_width=True)
+
 
